@@ -21,9 +21,9 @@ namespace ProcessorInfo {
 
         public ProcessorInfo(Bar parent) {
             _background = new SolidBrush(
-                Color.FromName(Manager.settings.ReadSettingOrDefault("Black", "General.Bar.UnselectedBackgroundColour")));
+                Color.FromName(Manager.Settings.ReadSettingOrDefault("Black", "General.Bar.UnselectedBackgroundColour")));
             _foreground = new SolidBrush(
-                Color.FromName(Manager.settings.ReadSettingOrDefault("LightGray", "General.Bar.SelectedForeground")));
+                Color.FromName(Manager.Settings.ReadSettingOrDefault("LightGray", "General.Bar.SelectedForeground")));
 
             _cpuCounter = new PerformanceCounter();
             _cpuCounter.CategoryName = "Processor";

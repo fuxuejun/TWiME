@@ -1,5 +1,7 @@
 using System;
 using System.Drawing;
+using System.Security.Cryptography.X509Certificates;
+using Extensions;
 
 namespace TWiME {
     class BarItem {
@@ -24,9 +26,9 @@ namespace TWiME {
             MinimumWidth = minWidth;
             MaximumWidth = maxWidth;
             BackColour = backcolour ?? new SolidBrush(
-                                           Color.FromName(Manager.settings.ReadSettingOrDefault("Black", "General.Bar.UnselectedBackgroundColour")));
+                                           Manager.Settings.ReadSettingOrDefault("Black", "General.Bar.UnselectedBackgroundColour").ToColor());
             ForeColour = forecolour ?? new SolidBrush(
-                                           Color.FromName(Manager.settings.ReadSettingOrDefault("LightGray", "General.Bar.SelectedForeground")));
+                                           Manager.Settings.ReadSettingOrDefault("LightGray", "General.Bar.SelectedForeground").ToColor());
             RenewInterval = new TimeSpan(0, 0, 0, 5); //5 seconds
         }
     }

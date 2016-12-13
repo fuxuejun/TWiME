@@ -65,6 +65,8 @@ namespace TWiME {
 
         #region Constructors and Destructors
 
+        private bool isHooked = false;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="globalKeyboardHook"/> class and installs the keyboard hook.
         /// </summary>
@@ -89,15 +91,23 @@ namespace TWiME {
         /// Installs the global hook
         /// </summary>
         public void hook() {
+            if(isHooked) return;
+            
             IntPtr hInstance = LoadLibrary("User32");
             hhook = SetWindowsHookEx(WH_KEYBOARD_LL, kHP, hInstance, 0);
+
+            isHooked = true;
         }
 
         /// <summary>
         /// Uninstalls the global hook
         /// </summary>
         public void unhook() {
+            if(!isHooked) return;
+
             UnhookWindowsHookEx(hhook);
+
+            isHooked = false;
         }
 
         private const int KF_UP = 0x8000;

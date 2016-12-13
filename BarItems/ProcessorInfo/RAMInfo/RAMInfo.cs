@@ -19,9 +19,9 @@ namespace ProcessorInfo {
 
         public RAMInfo(Bar parent) {
             _background = new SolidBrush(
-                Color.FromName(Manager.settings.ReadSettingOrDefault("Black", "General.Bar.UnselectedBackgroundColour")));
+                Manager.Settings.ReadSettingOrDefault("Black", "General.Bar.UnselectedBackgroundColour").ToColor());
             _foreground = new SolidBrush(
-                Color.FromName(Manager.settings.ReadSettingOrDefault("LightGray", "General.Bar.SelectedForeground")));
+                Manager.Settings.ReadSettingOrDefault("LightGray", "General.Bar.SelectedForeground").ToColor());
 
             _font = parent.TitleFont;
             _height = parent.BarHeight;

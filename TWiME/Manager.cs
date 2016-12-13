@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Globalization;
@@ -9,18 +10,21 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Extensions;
-using HumanReadableSettings;
 
-namespace TWiME {
-    public static class Manager {
+namespace TWiME
+{
+    public static class Manager
+    {
         private const int LOG_LEVEL = 99;
 
         private static List<Window> _windowList = new List<Window>();
-        public static List<Window> Windows {
+        public static List<Window> Windows
+        {
             get { return _windowList; }
         }
         public static List<Window> hiddenWindows = new List<Window>();
         private static HashSet<IntPtr> _handles = new HashSet<IntPtr>();
+        private static HashSet<IntPtr> _ingoreHandles = new HashSet<IntPtr>();
         public static List<Monitor> monitors = new List<Monitor>();
         private static globalKeyboardHook _globalHook = new globalKeyboardHook();
         public static WindowSwitcher Switcher { get; internal set; }
@@ -32,7 +36,7 @@ namespace TWiME {
         public static List<Type> layouts = new List<Type>();
         private static StreamWriter logger;
         private static Settings userSettingsOverride = new Settings("_TWiMErc", true);
-        public static Settings settings;
+        public static Settings Settings;
         public static Dictionary<WindowMatch, WindowRule> windowRules = new Dictionary<WindowMatch, WindowRule>();
 
         private const UInt32 WM_KEYDOWN = 0x0100;
@@ -44,12 +48,13 @@ namespace TWiME {
         private static bool isAltKeyDown;
         private static bool isControlKeyDown;
 
-        public static void Setup() {
+        public static void Setup()
+        {
             Taskbar.Hidden = true;
             bool settingsReadOnly =
-                !Convert.ToBoolean(userSettingsOverride.ReadSettingOrDefault("false", "General.Main.AutoSave"));
-            settings = new Settings("_runtimesettings", settingsReadOnly);
-            settings.OverwriteWith(userSettingsOverride);
+                !Convert.ToBoolean(userSettingsOverride.ReadSettingOrDefault(false, "General.Main.AutoSave"));
+            Settings = new Settings("_runtimesettings", settingsReadOnly);
+            Settings.OverwriteWith(userSettingsOverride);
             setupWindowRules();
             setupHotkeys();
             setupLayouts();
@@ -63,74 +68,94 @@ namespace TWiME {
             Application.ApplicationExit += Application_ApplicationExit;
             Microsoft.Win32.SystemEvents.DisplaySettingsChanged += SystemEvents_DisplaySettingsChanged;
         }
-
-        public static void SetWallpaper(string path) {
-            if (!File.Exists(path)) {
+        
+        public static void SetWallpaper(string path)
+        {
+            if (!File.Exists(path))
+            {
                 return;
             }
             string newPath = Path.GetTempPath();
             string oldName = Path.GetFileNameWithoutExtension(path);
             string newName = Path.Combine(newPath, oldName + ".bmp");
-            try {
+            try
+            {
                 Image image = Image.FromFile(path);
                 image.Save(newName, ImageFormat.Bmp);
                 image.Dispose();
                 Win32API.SystemParametersInfo(Win32API.SPI_SETDESKWALLPAPER, 0, newName,
                               Win32API.SPIF_UPDATEINIFILE | Win32API.SPIF_SENDWININICHANGE);
             }
-            catch (Exception) {//Because /fuck GDI+/, seriously.
+            catch (Exception)
+            {//Because /fuck GDI+/, seriously.
                 Manager.Log("Wallpaper change to {0} failed".With(path));
             }
         }
 
-        static void SystemEvents_DisplaySettingsChanged(object sender, EventArgs e) {
-            if (!bool.Parse(settings.ReadSettingOrDefault("true", "General.Main.RestartOnDisplayChange"))) {
+        static void SystemEvents_DisplaySettingsChanged(object sender, EventArgs e)
+        {
+            if (!Settings.ReadSettingOrDefault(true, "General.Main.RestartOnDisplayChange"))
+            {
                 return;
             }
             int screenID = 0;
             bool displaySettingsHaveChanged = false;
-            if (Screen.AllScreens.Length != monitors.Count) {
+            if (Screen.AllScreens.Length != monitors.Count)
+            {
                 displaySettingsHaveChanged = true;
             }
-            else {
-                foreach (Screen allScreen in Screen.AllScreens) {
-                    if (allScreen != monitors[screenID].Screen) {
+            else
+            {
+                foreach (Screen allScreen in Screen.AllScreens)
+                {
+                    if (allScreen != monitors[screenID].Screen)
+                    {
                         displaySettingsHaveChanged = true;
                         break;
                     }
                     screenID++;
                 }
             }
-            if (displaySettingsHaveChanged) {
+            if (displaySettingsHaveChanged)
+            {
                 softReset();
             }
         }
 
-        private static void softReset() {
-            foreach (Monitor monitor in monitors) {
+        private static void softReset()
+        {
+            foreach (Monitor monitor in monitors)
+            {
                 monitor.Disown();
             }
             monitors = new List<Monitor>();
             setupMonitors();
         }
 
-        private static void setupWindowRules() {
-            if (!settings.sections.Contains("Window Rules")) {
+        private static void setupWindowRules()
+        {
+            if (!Settings.Contains("WindowRules"))
+            {
                 return;
             }
-            foreach (List<string> list in settings.KeysUnderSection("Window Rules")) {
-                string winClass = list[1];
-                string winTitle = list[2];
-                long winStyle = long.Parse(list[3], NumberStyles.HexNumber);
-                string winRule = list[4];
+
+            foreach (var item in Settings.ReadSettingOrDefault(new List<object>(), "WindowRules"))
+            {
+                var list = item.ToString().Split('.');
+                string winClass = list[0];
+                string winTitle = list[1];
+                long winStyle = long.Parse(list[2], NumberStyles.HexNumber);
+                string winRule = list[3];
                 bool negative = false;
-                if (winClass.StartsWith("!")) {
+                if (winClass.StartsWith("!"))
+                {
                     negative = true;
                     winClass = winClass.Substring(1);
                 }
-                int value = Convert.ToInt32(settings.ReadSetting(list.ToArray()));
+                int value = Convert.ToInt32(list[4]);
                 WindowRules rule;
-                if (WindowRules.TryParse(winRule, true, out rule)) {
+                if (Enum.TryParse(winRule, true, out rule))
+                {
                     WindowRule newRule = new WindowRule(rule, value);
                     WindowMatch newMatch = new WindowMatch(winClass, winTitle, winStyle, negative);
                     windowRules[newMatch] = newRule;
@@ -138,46 +163,62 @@ namespace TWiME {
             }
         }
 
-        public static void CenterMouseOnActiveWindow() {
-            bool moveMouse = Convert.ToBoolean(settings.ReadSettingOrDefault("false", "General.Main.MouseFollowsInput"));
-            if (moveMouse) {
+        public static void CenterMouseOnActiveWindow()
+        {
+            bool moveMouse = Settings.ReadSettingOrDefault(false, "General.Main.MouseFollowsInput");
+            if (moveMouse)
+            {
                 IntPtr pointer = Win32API.GetForegroundWindow();
                 Window window = GetWindowObjectByHandle(pointer);
-                if (window != null) {
+                if (window != null)
+                {
                     Cursor.Position = window.Location.Center();
                 }
             }
         }
 
-        public static void Log(string toLog, int logLevel = 0) {
-            if (logLevel >= LOG_LEVEL) {
+        public static void Log(string toLog, int logLevel = 0)
+        {
+            if (logLevel >= LOG_LEVEL)
+            {
                 Console.WriteLine(toLog);
                 logger.WriteLine(toLog);
                 logger.Flush();
             }
         }
 
-        private static void Application_ApplicationExit(object sender, EventArgs e) {
-            if (!settings.readOnly) {
-                settings.save();
+        private static void Application_ApplicationExit(object sender, EventArgs e)
+        {
+            if (!Settings.ReadOnly)
+            {
+                Settings.Save();
             }
+
+            logger?.Close();
         }
 
-        private static void setupLayouts() {
-            foreach (string file in Directory.GetFiles("Layouts", "*.dll")) {
+        private static void setupLayouts()
+        {
+            foreach (string file in Directory.GetFiles("Layouts", "*.dll"))
+            {
                 Assembly asm = Assembly.UnsafeLoadFrom(Path.Combine(Directory.GetCurrentDirectory(), file));
-                foreach (Type type in asm.GetTypes()) {
-                    if (type.BaseType == typeof(Layout)) {
+                foreach (Type type in asm.GetTypes())
+                {
+                    if (type.BaseType == typeof(Layout))
+                    {
                         layouts.Add(type);
                     }
                 }
             }
         }
 
-        public static int GetLayoutIndexFromName(string name) {
+        public static int GetLayoutIndexFromName(string name)
+        {
             int index = 0;
-            foreach (Type layout in layouts) {
-                if (name == layout.Name) {
+            foreach (Type layout in layouts)
+            {
+                if (name == layout.Name)
+                {
                     return index;
                 }
                 index++;
@@ -185,11 +226,13 @@ namespace TWiME {
             return 0;
         }
 
-        public static string GetLayoutNameFromIndex(int index) {
+        public static string GetLayoutNameFromIndex(int index)
+        {
             return layouts[index].Name;
         }
 
-        private static void setupHotkeys() {
+        private static void setupHotkeys()
+        {
             #region Hook Modifiers
 
             _globalHook.HookedKeys.Add(Keys.LWin);
@@ -199,32 +242,35 @@ namespace TWiME {
 
             #endregion
 
-            hook(Keys.Tab, (() => {
-                                if (Switcher.Visible) {
-                                    Switcher.Hide();
-                                }
-                                else {
-                                    Switcher.Show();
-                                    _windowSwitcherWindow.Activate();
-                                }
-                            }));
+            hook(Keys.Tab, (() =>
+            {
+                if (Switcher.Visible)
+                {
+                    Switcher.Hide();
+                }
+                else
+                {
+                    Switcher.Show();
+                    _windowSwitcherWindow.Activate();
+                }
+            }));
 
             hook(Keys.Q, (() => SendMessage(Message.Close, Level.Global, 0)));
-            hook(Keys.R, (() => SendMessage(Message.Close, Level.Global, 1)));
+            //            hook(Keys.R, (() => SendMessage(Message.Close, Level.Global, 1)));
             hook(Keys.Space, (() => SendMessage(Message.Switch, Level.Global, 0)));
 
 
             hook(Keys.J, (() => SendMessage(Message.Focus, Level.Screen, 1)));
             hook(Keys.K, (() => SendMessage(Message.Focus, Level.Screen, -1)));
-            hook(Keys.Return, (() => SendMessage(Message.FocusThis, Level.Screen, 0)));
+            hook(Keys.Enter, (() => SendMessage(Message.FocusThis, Level.Screen, 0)));
             hook(Keys.J, (() => SendMessage(Message.Switch, Level.Screen, 1)), Keys.Shift);
             hook(Keys.K, (() => SendMessage(Message.Switch, Level.Screen, -1)), Keys.Shift);
-            hook(Keys.Return, (() => SendMessage(Message.SwitchThis, Level.Screen, 0)), Keys.Shift);
+            hook(Keys.Enter, (() => SendMessage(Message.SwitchThis, Level.Screen, 0)), Keys.Shift);
             hook(Keys.C, (() => SendMessage(Message.Close, Level.Window, 0)));
 
             hook(Keys.T, (() => SendMessage(Message.TilingType, Level.Window, 0)));
             hook(Keys.F, (() => SendMessage(Message.TilingType, Level.Window, 3)));
-            hook(Keys.G, (() => SendMessage(Message.TilingType, Level.Window, -1)));
+            hook(Keys.H, (() => SendMessage(Message.TilingType, Level.Window, -1)));
 
             hook(Keys.T, (() => SendMessage(Message.TopMost, Level.Window, -1)), Keys.Shift);
             hook(Keys.F, (() => SendMessage(Message.WindowChrome, Level.Window, -1)), Keys.Shift);
@@ -233,7 +279,7 @@ namespace TWiME {
 
             hook(Keys.J, (() => SendMessage(Message.Monitor, Level.Screen, 1)), Keys.Shift | Keys.Alt);
             hook(Keys.K, (() => SendMessage(Message.Monitor, Level.Screen, -1)), Keys.Shift | Keys.Alt);
-            hook(Keys.Return, (() => SendMessage(Message.MonitorMoveThis, Level.Screen, 0)), Keys.Shift | Keys.Alt);
+            hook(Keys.Enter, (() => SendMessage(Message.MonitorMoveThis, Level.Screen, 0)), Keys.Shift | Keys.Alt);
 
             hook(Keys.Left, (() => SendMessage(Message.Splitter, Level.Screen, -1)));
             hook(Keys.Left, (() => SendMessage(Message.Splitter, Level.Screen, -10)), Keys.Shift);
@@ -246,17 +292,16 @@ namespace TWiME {
 
             hook(Keys.J, (() => SendMessage(Message.ScreenRelative, Level.Monitor, 1)), Keys.Control);
             hook(Keys.K, (() => SendMessage(Message.ScreenRelative, Level.Monitor, -1)), Keys.Control);
-            hook(Keys.Return, (() => SendMessage(Message.Screen, Level.Monitor, -1)), Keys.Control);
-            hook(Keys.Back, (() => SendMessage(Message.TagWindow, Level.Monitor, Manager.GetFocussedMonitor().GetEnabledTags().First())), Keys.Control | Keys.Shift);
+            //            hook(Keys.Enter, (() => SendMessage(Message.Screen, Level.Monitor, -1)), Keys.Control);
+            //            hook(Keys.Back, (() => SendMessage(Message.TagWindow, Level.Monitor, Manager.GetFocussedMonitor().GetEnabledTags().First())), Keys.Control | Keys.Shift);
 
             hook(Keys.J, (() => SendMessage(Message.SwapTagWindowRelative, Level.Monitor, 1)), Keys.Control | Keys.Shift);
-            hook(Keys.K, (() => SendMessage(Message.SwapTagWindowRelative, Level.Monitor, -1)),
-                 Keys.Control | Keys.Shift);
-            hook(Keys.Return, (() => SendMessage(Message.SwapTagWindow, Level.Monitor, 0)), Keys.Control | Keys.Shift);
+            hook(Keys.K, (() => SendMessage(Message.SwapTagWindowRelative, Level.Monitor, -1)), Keys.Control | Keys.Shift);
+            hook(Keys.Enter, (() => SendMessage(Message.SwapTagWindow, Level.Monitor, 0)), Keys.Control | Keys.Shift);
 
             hook(Keys.J, (() => SendMessage(Message.MonitorSwitch, Level.Monitor, 1)), Keys.Alt);
             hook(Keys.K, (() => SendMessage(Message.MonitorSwitch, Level.Monitor, -1)), Keys.Alt);
-            hook(Keys.Return, (() => SendMessage(Message.MonitorFocus, Level.Monitor, 0)), Keys.Alt);
+            hook(Keys.Enter, (() => SendMessage(Message.MonitorFocus, Level.Monitor, 0)), Keys.Alt);
 
             hook(Keys.Space,
                  (() => SendMessage(Message.LayoutRelative, Level.Monitor, GetFocussedMonitor().GetActiveScreen().tag)),
@@ -268,11 +313,14 @@ namespace TWiME {
 
             hook(Keys.Oem8, (() => SendMessage(Message.TilingType, Level.Window, -2)));
 
+            hook(Keys.Y, (() => SendMessage(Message.CopyInfo, Level.Window, 0)));
+
             #region TagStuff
 
             int tagIndex = 0;
-            foreach (Keys key in new[] {Keys.D1, Keys.D2, Keys.D3, Keys.D4, Keys.D5, Keys.D6, Keys.D7, Keys.D8, Keys.D9}
-                ) {
+            foreach (Keys key in new[] { Keys.D1, Keys.D2, Keys.D3, Keys.D4, Keys.D5, Keys.D6, Keys.D7, Keys.D8, Keys.D9 }
+                )
+            {
                 int index = tagIndex++;
                 hook(key, (() => SendMessage(Message.Screen, Level.Monitor, index)), Keys.Control);
                 hook(key, (() => SendMessage(Message.TagWindow, Level.Monitor, index)), Keys.Shift | Keys.Control);
@@ -284,17 +332,17 @@ namespace TWiME {
 
             #endregion
 
-            hook(Keys.Z, (()=>monitors[0].Bar.Menu.Show(Cursor.Position)));
-            hook(Keys.S, (()=>SendMessage(Message.Split, Level.Monitor, 0)));
-            hook(Keys.X, (()=>SendMessage(Message.Hide, Level.Monitor, 0)));
-            hook(Keys.A, (()=>SendMessage(Message.ShowAll, Level.Monitor, 0)));
-            hook(Keys.D, (()=>SendMessage(Message.OnlyShow, Level.Monitor, 0)));
-            hook(Keys.Left, (()=>SendMessage(Message.Splitter, Level.Monitor, -1)), Keys.Control);
-            hook(Keys.Right, (()=>SendMessage(Message.Splitter, Level.Monitor, 1)), Keys.Control);
-            hook(Keys.Left, (()=>SendMessage(Message.Splitter, Level.Monitor, -10)), Keys.Control | Keys.Shift);
-            hook(Keys.Right, (()=>SendMessage(Message.Splitter, Level.Monitor, 10)), Keys.Control | Keys.Shift);
-            hook(Keys.S, (()=>SendMessage(Message.SplitRotate, Level.Monitor, 1)), Keys.Shift);
-            hook(Keys.S, (()=>SendMessage(Message.SplitRotate, Level.Monitor, -1)), Keys.Control);
+            hook(Keys.Z, (() => monitors[0].Bar.Menu.Show(Cursor.Position)));
+            hook(Keys.S, (() => SendMessage(Message.Split, Level.Monitor, 0)));
+            hook(Keys.X, (() => SendMessage(Message.Hide, Level.Monitor, 0)));
+            hook(Keys.A, (() => SendMessage(Message.ShowAll, Level.Monitor, 0)));
+            hook(Keys.D, (() => SendMessage(Message.OnlyShow, Level.Monitor, 0)));
+            hook(Keys.Left, (() => SendMessage(Message.Splitter, Level.Monitor, -1)), Keys.Control);
+            hook(Keys.Right, (() => SendMessage(Message.Splitter, Level.Monitor, 1)), Keys.Control);
+            hook(Keys.Left, (() => SendMessage(Message.Splitter, Level.Monitor, -10)), Keys.Control | Keys.Shift);
+            hook(Keys.Right, (() => SendMessage(Message.Splitter, Level.Monitor, 10)), Keys.Control | Keys.Shift);
+            hook(Keys.S, (() => SendMessage(Message.SplitRotate, Level.Monitor, 1)), Keys.Shift);
+            hook(Keys.S, (() => SendMessage(Message.SplitRotate, Level.Monitor, -1)), Keys.Control);
 
             hook(Keys.Oemplus, (() => SendMessage(Message.ReindexTagScreens, Level.Monitor, 1)), Keys.Control);
             hook(Keys.OemMinus, (() => SendMessage(Message.ReindexTagScreens, Level.Monitor, -1)), Keys.Control);
@@ -306,97 +354,129 @@ namespace TWiME {
             _globalHook.KeyUp += globalHook_KeyUp;
         }
 
-        public static void SendMessage(Message type, Level level, int data) {
+        public static void SendMessage(Message type, Level level, int data)
+        {
             IntPtr focussed = Win32API.GetForegroundWindow();
             HotkeyMessage message = new HotkeyMessage(type, level, focussed, data);
-            if (message.level == Level.Global) {
+            if (message.level == Level.Global)
+            {
                 CatchMessage(message);
             }
-            else {
+            else
+            {
                 GetFocussedMonitor().CatchMessage(message);
             }
         }
 
-        private static void CatchMessage(HotkeyMessage message) {
-            if (message.Message == Message.Close) {
+        private static void CatchMessage(HotkeyMessage message)
+        {
+            if (message.Message == Message.Close)
+            {
                 Manager.Log("Beginning shutdown loop", 10);
-                foreach (Window window in _windowList) {
+                foreach (Window window in _windowList)
+                {
                     Manager.Log("Setting {0} visible and not maximised".With(window), 10);
                     window.Visible = true;
                     window.Maximised = false;
                     window.ShowCaption = true;
                 }
                 Manager.Log("Showing taskbar", 10);
+
+                logger?.Close();
+                logger = null;
+
                 Taskbar.Hidden = false;
-                if (message.data == 0) {
+                if (message.data == 0)
+                {
                     Application.Exit();
                 }
-                else {
-                    Application.Restart();
+                else
+                {
+                    Application.Exit();
+                    //                    Process.Start(Application.ExecutablePath);
                 }
             }
-            if (message.Message == Message.Switch) {
+            if (message.Message == Message.Switch)
+            {
                 Manager.Log("Toggling taskbar");
                 Taskbar.Hidden = !Taskbar.Hidden;
                 Manager.monitors[0].AssertTagLayout();
             }
         }
 
-        private static void globalHook_KeyUp(object sender, KeyEventArgs e) {
-            if (e.KeyCode == Keys.LWin) {
+        private static void globalHook_KeyUp(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.LWin)
+            {
                 isWinKeyDown = false;
             }
-            if (e.KeyCode == Keys.LShiftKey) {
+            if (e.KeyCode == Keys.LShiftKey)
+            {
                 isShiftKeyDown = false;
             }
-            if (e.KeyCode == Keys.LMenu) {
+            if (e.KeyCode == Keys.LMenu)
+            {
                 isAltKeyDown = false;
             }
-            if (e.KeyCode == Keys.LControlKey) {
+            if (e.KeyCode == Keys.LControlKey)
+            {
                 isControlKeyDown = false;
             }
         }
 
-        private static void hook(Keys key, Action response, Keys modifiers = Keys.None) {
+        private static void hook(Keys key, Action response, Keys modifiers = Keys.None)
+        {
             _globalHook.HookedKeys.Add(key);
-            if (!hooked.ContainsKey(modifiers)) {
+            if (!hooked.ContainsKey(modifiers))
+            {
                 hooked[modifiers] = new Dictionary<Keys, Action>();
             }
             hooked[modifiers][key] = response;
         }
 
-        private static void hook_KeyDown(object sender, KeyEventArgs e) {
-            if (e.KeyData == Keys.LWin) {
+        private static void hook_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyData == Keys.LWin)
+            {
                 isWinKeyDown = true;
                 return;
             }
-            if (e.KeyData == Keys.LShiftKey) {
+            if (e.KeyData == Keys.LShiftKey)
+            {
                 isShiftKeyDown = true;
                 return;
             }
-            if (e.KeyData == Keys.LMenu) {
+            if (e.KeyData == Keys.LMenu)
+            {
                 isAltKeyDown = true;
                 return;
             }
-            if (e.KeyData == Keys.LControlKey) {
+            if (e.KeyData == Keys.LControlKey)
+            {
                 isControlKeyDown = true;
                 return;
             }
 
-            if (isWinKeyDown) {
+            if (isWinKeyDown)
+            {
                 Keys modifier = Keys.None;
-                if (isShiftKeyDown) {
+                if (isShiftKeyDown)
+                {
                     modifier |= Keys.Shift;
                 }
-                if (isAltKeyDown) {
+                if (isAltKeyDown)
+                {
                     modifier |= Keys.Alt;
                 }
-                if (isControlKeyDown) {
+                if (isControlKeyDown)
+                {
                     modifier |= Keys.Control;
                 }
                 e.Handled = true;
-                if (hooked.ContainsKey(modifier)) {
-                    if (hooked[modifier].ContainsKey(e.KeyCode)) {
+                if (hooked.ContainsKey(modifier))
+                {
+                    if (hooked[modifier].ContainsKey(e.KeyCode))
+                    {
                         hooked[modifier][e.KeyCode]();
                     }
                 }
@@ -407,43 +487,53 @@ namespace TWiME {
 
         private static bool executedACommandLately;
 
-        public static bool IsModifierPressed(Keys key, bool keyDown) {
+        public static bool IsModifierPressed(Keys key, bool keyDown)
+        {
             Manager.Log("==============isModifierPressed running for {0} (KeyDown is {1})".With(key, keyDown), 3);
             Keys modifier = Keys.None;
-            if (key == Keys.LWin && keyDown) {
+            if (key == Keys.LWin && keyDown)
+            {
                 Manager.Log("Key is LWin, and we're pressing it. Return.", 3);
                 return true;
             }
-            if (key == Keys.LWin) {
+            if (key == Keys.LWin)
+            {
                 Manager.Log("Key is LWin, and it's coming back up", 3);
-                if (executedACommandLately) {
+                if (executedACommandLately)
+                {
                     Log("We've executed a command this run. Return.", 3);
                     executedACommandLately = false;
-                    Win32API.PostMessage((IntPtr) 0xFFFF, WM_KEYDOWN, VK_LWIN, 0); //0xFFFF is HWND_BROADCAST - everything.
-                    Win32API.PostMessage((IntPtr) 0xFFFF, WM_KEYUP, VK_LWIN, 0); //0xFFFF is HWND_BROADCAST - everything.
+                    Win32API.PostMessage((IntPtr)0xFFFF, WM_KEYDOWN, VK_LWIN, 0); //0xFFFF is HWND_BROADCAST - everything.
+                    Win32API.PostMessage((IntPtr)0xFFFF, WM_KEYUP, VK_LWIN, 0); //0xFFFF is HWND_BROADCAST - everything.
                     return true;
                 }
                 Log("We haven't executed a command this run. Return", 3);
                 return false;
             }
 
-            if (isWinKeyDown) {
+            if (isWinKeyDown)
+            {
                 Log("Windows key state is down - this could be a hotkey", 3);
-                if (isShiftKeyDown) {
+                if (isShiftKeyDown)
+                {
                     Log("Shift key is down", 3);
                     modifier |= Keys.Shift;
                 }
-                if (isAltKeyDown) {
+                if (isAltKeyDown)
+                {
                     Log("Alt key is down", 3);
                     modifier |= Keys.Alt;
                 }
-                if (isControlKeyDown) {
+                if (isControlKeyDown)
+                {
                     Log("Control key is down", 3);
                     modifier |= Keys.Control;
                 }
-                if (hooked.ContainsKey(modifier)) {
+                if (hooked.ContainsKey(modifier))
+                {
                     Log("This modifier combination is a thing", 3);
-                    if (hooked[modifier].ContainsKey(key)) {
+                    if (hooked[modifier].ContainsKey(key))
+                    {
                         Manager.Log("Blocking Key{2} {1}+{0}.".With(key, modifier, keyDown ? "down" : "up"), 3);
                         executedACommandLately = true;
                         return true;
@@ -454,30 +544,36 @@ namespace TWiME {
             return false;
         }
 
-        private static void setupMonitors() {
-            foreach (Screen screen in Screen.AllScreens) {
+        private static void setupMonitors()
+        {
+            foreach (Screen screen in Screen.AllScreens)
+            {
                 Monitor monitor = new Monitor(screen);
                 monitors.Add(monitor);
             }
         }
 
-        private static void setupTimers() {
+        private static void setupTimers()
+        {
             Timer pollTimer = new Timer();
-            pollTimer.Interval = Convert.ToInt32(Manager.settings.ReadSettingOrDefault("1000", "General.Main.Poll"));
+            pollTimer.Interval = Convert.ToInt32(Manager.Settings.ReadSettingOrDefault("1000", "General.Main.Poll"));
             pollTimer.Tick += pollWindows_Tick;
             pollTimer.Start();
         }
 
-        public static void ForcePoll() {
+        public static void ForcePoll()
+        {
             pollWindows_Tick(new object(), new EventArgs());
         }
 
         private static IntPtr focusTrack = IntPtr.Zero;
-        private static void pollWindows_Tick(object sender, EventArgs e) {
+        private static void pollWindows_Tick(object sender, EventArgs e)
+        {
             _globalHook.unhook();
             _globalHook.hook();
 
-            if (Win32API.GetForegroundWindow() != focusTrack) {
+            if (Win32API.GetForegroundWindow() != focusTrack)
+            {
                 focusTrack = Win32API.GetForegroundWindow();
                 OnWindowFocusChange(GetWindowObjectByHandle(focusTrack),
                                     new WindowEventArgs(Manager.GetFocussedMonitor().Screen));
@@ -485,37 +581,54 @@ namespace TWiME {
             Windows windows = new Windows();
             List<Window> allCurrentlyVisibleWindows = new List<Window>();
             List<Window> hiddenNotShownByMeWindows = new List<Window>();
-            foreach (Window window in windows) {
+            foreach (Window window in windows)
+            {
                 bool windowIgnored = false;
-                if ((from win in hiddenWindows select win.handle).Contains(window.handle)) {
+                if ((from win in hiddenWindows select win.handle).Contains(window.handle))
+                {
                     hiddenNotShownByMeWindows.Add(window);
                 }
-                if (!_handles.Contains(window.handle)) {
+                if (_ingoreHandles.Contains(window.handle))
+                {
+                    continue;
+                }
+
+                if (!_handles.Contains(window.handle))
+                {
                     Manager.Log("Found a new window! {0} isn't in the main listing".With(window.Title));
-                    foreach (KeyValuePair<WindowMatch, WindowRule> kvPair in new Dictionary<WindowMatch, WindowRule>(windowRules)) {
-                        if (kvPair.Key.windowMatches(window)) {
+                    foreach (KeyValuePair<WindowMatch, WindowRule> kvPair in new Dictionary<WindowMatch, WindowRule>(windowRules))
+                    {
+                        if (kvPair.Key.windowMatches(window))
+                        {
                             WindowRule rule = kvPair.Value;
-                            if (rule.rule == WindowRules.ignore) {
+                            if (rule.rule == WindowRules.ignore)
+                            {
                                 windowIgnored = rule.data == 1;
                             }
-                            if (rule.rule == WindowRules.noResize) {
+                            if (rule.rule == WindowRules.noResize)
+                            {
                                 window.AllowResize = rule.data != 1;
                             }
-                            if (rule.rule == WindowRules.stripBorders) {
+                            if (rule.rule == WindowRules.stripBorders)
+                            {
                                 window.ShowCaption = rule.data != 1;
                                 WindowMatch newMatch = new WindowMatch(window.ClassName, kvPair.Key.Title, kvPair.Key.Style);
                                 WindowRule newRule = new WindowRule(WindowRules.ignore, 0);
                                 windowRules.Add(newMatch, newRule);
                             }
-                            if (rule.rule == WindowRules.tilingStyle) {
-                                window.TilingType = (WindowTilingType) rule.data;
+                            if (rule.rule == WindowRules.tilingStyle)
+                            {
+                                window.TilingType = (WindowTilingType)rule.data;
                             }
-                            if (rule.rule == WindowRules.topmost) {
+                            if (rule.rule == WindowRules.topmost)
+                            {
                                 window.TopMost = rule.data != 0;
                             }
                         }
                     }
-                    if (windowIgnored) {
+                    if (windowIgnored)
+                    {
+                        _ingoreHandles.Add(window.handle);
                         continue;
                     }
                     _windowList.Add(window);
@@ -524,11 +637,12 @@ namespace TWiME {
                 }
                 allCurrentlyVisibleWindows.Add(window);
             }
-            foreach (Window window in hiddenNotShownByMeWindows) {
+            foreach (Window window in hiddenNotShownByMeWindows)
+            {
                 window.Activate();
                 Window window1 = window;
                 var screensWithWindow =
-                    (from screen in (from monitor in monitors select monitor.screens).SelectMany(x=>x)
+                    (from screen in (from monitor in monitors select monitor.screens).SelectMany(x => x)
                      where screen.windows.Contains(window1)
                      select screen);
                 TagScreen firstScreenWithWindow = screensWithWindow.First();
@@ -536,39 +650,49 @@ namespace TWiME {
                 SendMessage(Message.Screen, Level.Monitor, firstScreenWithWindow.tag);
                 window.Activate();
             }
-            if (hiddenNotShownByMeWindows.Count > 0) {
+            if (hiddenNotShownByMeWindows.Count > 0)
+            {
                 return;
             }
-            foreach (Window window in new List<Window>(_windowList)) {
-                if (!allCurrentlyVisibleWindows.Contains(window)) {
+            foreach (Window window in new List<Window>(_windowList))
+            {
+                if (!allCurrentlyVisibleWindows.Contains(window))
+                {
                     Manager.Log("{0} is no longer open".With(window.Title), 1);
-                    if (!hiddenWindows.Contains(window)) {
+                    if (!hiddenWindows.Contains(window))
+                    {
                         Manager.Log("{0} is also not hidden - it's closed".With(window.Title));
                         _windowList.Remove(window);
                         _handles.Remove(window.handle);
                         //Screen windowScreen = Screen.FromHandle(window.handle);
                         OnWindowDestroy(window, new WindowEventArgs(window.Screen));
                     }
-                    else {
+                    else
+                    {
                         Manager.Log("{0} is just hidden, not closed".With(window.Title), 1);
                     }
                 }
             }
-            foreach (Monitor monitor in monitors) {
+            foreach (Monitor monitor in monitors)
+            {
                 monitor.GetActiveScreen().AssertLayout();
             }
         }
 
-        public static void ForceUnhandle(Window window) {
+        public static void ForceUnhandle(Window window)
+        {
             _windowList.Remove(window);
             _handles.Remove(window.handle);
         }
 
-        public static int GetMonitorIndex(Monitor monitor) {
+        public static int GetMonitorIndex(Monitor monitor)
+        {
             Screen screen = monitor.Screen;
             int index = 0;
-            foreach (Monitor mon in monitors) {
-                if (mon.Name == screen.DeviceName) {
+            foreach (Monitor mon in monitors)
+            {
+                if (mon.Name == screen.DeviceName)
+                {
                     return index;
                 }
                 index++;
@@ -576,11 +700,14 @@ namespace TWiME {
             return 0;
         }
 
-        public static int GetFocussedMonitorIndex() {
+        public static int GetFocussedMonitorIndex()
+        {
             Screen screen = Screen.FromHandle(Win32API.GetForegroundWindow());
             int index = 0;
-            foreach (Monitor mon in monitors) {
-                if (mon.Name == screen.DeviceName) {
+            foreach (Monitor mon in monitors)
+            {
+                if (mon.Name == screen.DeviceName)
+                {
                     return index;
                 }
                 index++;
@@ -588,15 +715,18 @@ namespace TWiME {
             return 0;
         }
 
-        public static Monitor GetFocussedMonitor() {
+        public static Monitor GetFocussedMonitor()
+        {
             return monitors[GetFocussedMonitorIndex()];
         }
 
-        public static Window GetWindowObjectByHandle(IntPtr handle) {
+        public static Window GetWindowObjectByHandle(IntPtr handle)
+        {
             return _windowList.FirstOrDefault(window => window.handle == handle);
         }
 
-        public static void DisownWindow(Window window) {
+        public static void DisownWindow(Window window)
+        {
             window.Visible = true;
             _windowList.Remove(window);
             _handles.Remove(window.handle);
@@ -609,20 +739,26 @@ namespace TWiME {
         public static event WindowEventHandler WindowDestroy;
         public static event WindowEventHandler WindowFocusChange;
 
-        private static void OnWindowCreate(object sender, WindowEventArgs args) {
-            if (WindowCreate != null) {
+        private static void OnWindowCreate(object sender, WindowEventArgs args)
+        {
+            if (WindowCreate != null)
+            {
                 WindowCreate(sender, args);
             }
         }
 
-        private static void OnWindowDestroy(object sender, WindowEventArgs args) {
-            if (WindowDestroy != null) {
+        private static void OnWindowDestroy(object sender, WindowEventArgs args)
+        {
+            if (WindowDestroy != null)
+            {
                 WindowDestroy(sender, args);
             }
         }
 
-        public static void OnWindowFocusChange(object sender, WindowEventArgs args) {
-            if (WindowFocusChange != null) {
+        public static void OnWindowFocusChange(object sender, WindowEventArgs args)
+        {
+            if (WindowFocusChange != null)
+            {
                 WindowFocusChange(sender, args);
             }
         }

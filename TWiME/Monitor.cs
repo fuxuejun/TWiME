@@ -12,7 +12,7 @@ namespace TWiME {
                 if (!Manager.monitors.Contains(this)) {
                     return _controlled;
                 }
-                if (!Taskbar.Hidden && (this==Manager.monitors[0])) {
+                if (!Taskbar.Hidden && (Equals(this, Manager.monitors[0]))) {
                     Rectangle newRect = _controlled;
                     newRect.Height -= 25;
                     return newRect;
@@ -43,7 +43,7 @@ namespace TWiME {
         }
 
         public string SafeName {
-            get { return Screen.DeviceName.Replace(".", ""); }
+            get { return Screen.DeviceName.Replace(".", "").Replace("\\", ""); }
         }
 
         public void SetTagState(int tagNumber, bool state, bool exclusive = true, bool surpressLayoutUpdate = false) {
@@ -86,8 +86,8 @@ namespace TWiME {
             }
 
             string newVisibleTags = String.Join(",", (from tag in _enabledTags select (tag + 1).ToString()));
-            if (!Manager.settings.readOnly) {
-                Manager.settings.AddSetting(newVisibleTags, SafeName, "VisibleTags");
+            if (!Manager.Settings.ReadOnly) {
+                Manager.Settings.AddSetting(newVisibleTags, SafeName, "VisibleTags");
             }
         }
         
@@ -205,7 +205,7 @@ namespace TWiME {
         public Monitor(Screen newscreen) {
             Screen = newscreen;
             Name = Screen.DeviceName;
-            int numTagScreens = int.Parse(Manager.settings.ReadSettingOrDefault(9, SafeName, "NumberOfTags"));
+            int numTagScreens = Manager.Settings.ReadSettingOrDefault(9, SafeName, "NumberOfTags");
             tagScreens = new TagScreen[numTagScreens];
             _activeTag = 0;
             createTagScreens();
@@ -215,8 +215,8 @@ namespace TWiME {
             temp.Y = Screen.Bounds.Top + Bar.BarHeight;
             temp.Width += 1;
             Controlled = temp;
-            _splitter = float.Parse(Manager.settings.ReadSettingOrDefault("0.5", Screen.DeviceName.Replace(".", ""), "Splitter"));
-            string activeTags = Manager.settings.ReadSettingOrDefault("1", SafeName, "VisibleTags");
+            _splitter = Manager.Settings.ReadSettingOrDefault(0.5f, Screen.DeviceName.Replace(".", "").Replace("\\", ""), "Splitter");
+            string activeTags = Manager.Settings.ReadSettingOrDefault("1", SafeName, "VisibleTags");
             string[] tags = activeTags.Split(',');
             foreach (string tag in tags) {
                 try {
@@ -288,7 +288,7 @@ namespace TWiME {
                 newTS[i] = new TagScreen(this, i);
             }
             tagScreens = newTS;
-            Manager.settings.AddSetting(newNumber.ToString(), SafeName, "NumberOfTags");
+            Manager.Settings.AddSetting(newNumber.ToString(), SafeName, "NumberOfTags");
         }
 
         public void CatchMessage(HotkeyMessage message) {
@@ -504,7 +504,7 @@ namespace TWiME {
                 }
                 if (message.Message == Message.Splitter) {
                     _splitter += message.data / 100.0f;
-                    Manager.settings.AddSetting(_splitter, Screen.DeviceName.Replace(".", ""), "Splitter");
+                    Manager.Settings.AddSetting(_splitter, Screen.DeviceName.Replace(".", "").Replace("\\", ""), "Splitter");
                     reorganiseActiveTagSpaces();
                 }
                 if (message.Message == Message.SplitRotate) {

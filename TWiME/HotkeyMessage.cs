@@ -33,6 +33,7 @@ namespace TWiME {
         TilingType, //Change the window's tiling type
         TopMost, //Change whether the window is topmost or not
         WindowChrome, //Change whether the window chrome is visible
+        CopyInfo, // 复制className和Title到剪贴板
     }
 
     public enum Level {

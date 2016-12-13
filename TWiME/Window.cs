@@ -312,6 +312,10 @@ namespace TWiME {
                     ShowCaption = !ShowCaption;
                 }
             }
+            else if (message.Message == Message.CopyInfo)
+            {
+                Clipboard.SetText(this.ClassName + "-" + this.Title + "-" + this.TilingType + "-" + this.Style);
+            }
         }
 
         public void Close() {

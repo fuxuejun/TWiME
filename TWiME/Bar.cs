@@ -15,8 +15,10 @@ using Extensions;
 using Microsoft.Win32;
 using Tree;
 
-namespace TWiME {
-    public sealed partial class Bar : Form {
+namespace TWiME
+{
+    public sealed partial class Bar : Form
+    {
         public Window BarWindow { get; internal set; }
 
         private int barHeight = 15;
@@ -31,17 +33,20 @@ namespace TWiME {
         private Brush coverBrush;
         private string tagStyle;
 
-        public Font TitleFont {
+        public Font TitleFont
+        {
             get { return titleFont; }
         }
-        public int BarHeight {
+        public int BarHeight
+        {
             get { return barHeight; }
         }
 
         private Screen _screen;
         private Monitor _parent;
 
-        public new Monitor Parent {
+        public new Monitor Parent
+        {
             get { return _parent; }
         }
 
@@ -60,52 +65,50 @@ namespace TWiME {
                                                                                                                 {WindowTilingType.FullTag, "}"},
                                                                                                                 {WindowTilingType.FullScreen, ">"},
                                                                                                                 {WindowTilingType.Floating, "$"}
-                                                                                                            }; 
+                                                                                                            };
 
-        public Bar(Monitor monitor) {
+        public Bar(Monitor monitor)
+        {
             InternalClosing = false;
             InitializeComponent();
 
-            barHeight = Convert.ToInt32(Manager.settings.ReadSettingOrDefault(15, "General.Bar.Height"));
-            titleFont = new Font(Manager.settings.ReadSettingOrDefault("Segoe UI", "General.Bar.Font"), barHeight * 0.6f);
+            barHeight = Convert.ToInt32(Manager.Settings.ReadSettingOrDefault(15, "General.Bar.Height"));
+            titleFont = new Font(Manager.Settings.ReadSettingOrDefault("Segoe UI", "General.Bar.Font"), barHeight * 0.6f);
             boldFont = new Font(titleFont, FontStyle.Bold);
             foregroundBrush =
                 new SolidBrush(
-                    Color.FromName(Manager.settings.ReadSettingOrDefault("Black", "General.Bar.UnselectedForeground")));
+                    Manager.Settings.ReadSettingOrDefault("Black", "General.Bar.UnselectedForeground").ToColor());
             foregroundBrush2 =
                 new SolidBrush(
-                    Color.FromName(Manager.settings.ReadSettingOrDefault("LightGray", "General.Bar.SelectedForeground")));
+                    Manager.Settings.ReadSettingOrDefault("LightGray", "General.Bar.SelectedForeground").ToColor());
             backgroundBrush =
                 new SolidBrush(
-                    Color.FromName(Manager.settings.ReadSettingOrDefault("DarkGray", "General.Bar.SelectedItemColour")));
+                    Manager.Settings.ReadSettingOrDefault("DarkGray", "General.Bar.SelectedItemColour").ToColor());
             backgroundBrush2 =
                 new SolidBrush(
-                    Color.FromName(Manager.settings.ReadSettingOrDefault("Black",
-                                                                         "General.Bar.UnselectedBackgroundColour")));
+                    Manager.Settings.ReadSettingOrDefault("Black",  "General.Bar.UnselectedBackgroundColour").ToColor());
             selectedBrush =
                 new SolidBrush(Color.FromArgb(128,
-                                              Color.FromName(Manager.settings.ReadSettingOrDefault("White",
-                                                                                                   "General.Bar.SelectedTagColour"))));
+                                              Manager.Settings.ReadSettingOrDefault("White", "General.Bar.SelectedTagColour").ToColor()));
             coverBrush = new SolidBrush(Color.FromArgb(
-                int.Parse(Manager.settings.ReadSettingOrDefault("128", "General.Bar.Inactive.Opacity")),
-                Color.FromName(Manager.settings.ReadSettingOrDefault("Black", "General.Bar.Inactive.Colour"))
-                ));
+                Manager.Settings.ReadSettingOrDefault(128, "General.Bar.Inactive.Opacity"),
+                Manager.Settings.ReadSettingOrDefault("Black", "General.Bar.Inactive.Colour").ToColor()));
 
             Color seperatorColour =
-                Color.FromName(Manager.settings.ReadSettingOrDefault("Blue", "General.Bar.SeperatorColour"));
-            int seperatorWidth = int.Parse(Manager.settings.ReadSettingOrDefault("3", "General.Bar.SeperatorWidth"));
+                Manager.Settings.ReadSettingOrDefault("Blue", "General.Bar.SeperatorColour").ToColor();
+            int seperatorWidth = Manager.Settings.ReadSettingOrDefault(3, "General.Bar.SeperatorWidth");
             seperatorPen = new Pen(seperatorColour, seperatorWidth);
             _screen = monitor.Screen;
             _parent = monitor;
 
-            tagStyle = Manager.settings.ReadSettingOrDefault("numbers", _parent.SafeName, "Bar", "TagStyle");
+            tagStyle = Manager.Settings.ReadSettingOrDefault("numbers", _parent.SafeName, "Bar", "TagStyle");
             this.StartPosition = FormStartPosition.Manual;
             this.Location = _screen.Bounds.Location;
             this.Width = _screen.Bounds.Width;
             this.Height = 10;
             this.FormBorderStyle = FormBorderStyle.None;
             this.DesktopLocation = this.Location;
-            Color bColor = Color.FromName(Manager.settings.ReadSettingOrDefault("DarkGray", "General.Bar.BackColour"));
+            Color bColor = Manager.Settings.ReadSettingOrDefault("DarkGray", "General.Bar.BackColour").ToColor();
             this.BackColor = bColor;
             this.ShowInTaskbar = false;
             BarWindow = new Window("", this.Handle, "", "", true);
@@ -116,61 +119,74 @@ namespace TWiME {
             SystemEvents.SessionEnding += SystemEvents_SessionEnding;
         }
 
-        void SystemEvents_SessionEnding(object sender, SessionEndingEventArgs e) {
+        void SystemEvents_SessionEnding(object sender, SessionEndingEventArgs e)
+        {
             this.Close();
             Manager.SendMessage(Message.Close, Level.Global, 0);
         }
 
-        private void generateMenu() {
+        private void generateMenu()
+        {
             Menu = new ContextMenuStrip();
             Menu.ShowImageMargin = false;
             Menu.Font = titleFont;
-            Menu.BackColor = Color.FromName(Manager.settings.ReadSettingOrDefault("DarkGray", "General.Menu.Background"));
+            Menu.BackColor = Manager.Settings.ReadSettingOrDefault("DarkGray", "General.Menu.Background").ToColor();
             Menu.ForeColor =
-                Color.FromName(Manager.settings.ReadSettingOrDefault("LightGray", "General.Menu.Foreground"));
+                Manager.Settings.ReadSettingOrDefault("LightGray", "General.Menu.Foreground").ToColor();
             Node<Action> root = new Node<Action>();
-            if (Manager.settings.sections.Contains("Menu Items")) {
-                foreach (List<string> list in Manager.settings.KeysUnderSection("Menu Items")) {
-                    string itemName = list.Last();
-                    string itemValue = Manager.settings.ReadSetting(list.ToArray());
-                    //Drop the first element, flip it round, drop the last, and flip it back.
-                    List<string> treeNodes = list.Skip(1).Reverse().Skip(1).Reverse().ToList();
+            if (Manager.Settings.Contains("MenuItems"))
+            {
+                foreach (var item in Manager.Settings.KeysUnderSection("MenuItems"))
+                {
+                    string itemName = item;
+                    string itemValue = Manager.Settings.ReadSetting("MenuItems", itemName, "path");
+                    
+                    List<string> treeNodes = new List<string>();
                     List<Node<Action>> currentNodes = new List<Node<Action>>();
                     currentNodes.Add(root);
-                    foreach (string node in treeNodes) {
-                        if (currentNodes.Last().ContainsNamedChildNode(node)) {
+                    foreach (string node in treeNodes)
+                    {
+                        if (currentNodes.Last().ContainsNamedChildNode(node))
+                        {
                             currentNodes.Add(currentNodes.Last().GetNamedChildNode(node));
                         }
-                        else {
+                        else
+                        {
                             Node<Action> newNode = new Node<Action>(node, null);
                             currentNodes.Last().Add(newNode);
                             currentNodes.Add(newNode);
                         }
                     }
-                    Node<Action> bottomMostNode = new Node<Action>(itemName, (()=>runCommand(itemValue)));
+                    Node<Action> bottomMostNode = new Node<Action>(itemName, (() => runCommand(itemValue)));
                     currentNodes.Last().Add(bottomMostNode);
                 }
             }
             ToolStripMenuItem items = buildMenu(root);
             ToolStripItemCollection collection = items.DropDownItems;
             int collectionCount = collection.Count;
-            for (int i = 0; i < collectionCount; i++) {
+            for (int i = 0; i < collectionCount; i++)
+            {
                 Menu.Items.Add(collection[0]);
             }
         }
 
-        private void loadPluginItems() {
-            foreach (string file in Directory.GetFiles("BarItems", "*.dll")) {
+        private void loadPluginItems()
+        {
+            foreach (string file in Directory.GetFiles("BarItems", "*.dll"))
+            {
                 Assembly asm = Assembly.LoadFile(Path.Combine(Directory.GetCurrentDirectory(), file));
-                foreach (Type type in asm.GetTypes()) {
-                    if (typeof(IPluginBarItem).IsAssignableFrom(type)) {
+                foreach (Type type in asm.GetTypes())
+                {
+                    if (typeof(IPluginBarItem).IsAssignableFrom(type))
+                    {
                         _barPlugins[type.Name] = type;
                     }
                 }
             }
         }
 
-        public string GetAssociation(string doctype) {
+        public string GetAssociation(string doctype)
+        {
             uint pcchOut = 0;   // size of output buffer
 
             // First call is to get the required size of output buffer
@@ -186,127 +202,154 @@ namespace TWiME {
         }
 
 
-        private void runCommand(string command) {
+        private void runCommand(string command)
+        {
             Dictionary<string, Action> specialCommands = new Dictionary<string, Action>();
             specialCommands["Edit TWiMErc"] = (() => Process.Start(GetAssociation(@".txt"), "_TWiMErc"));
             specialCommands["Quit"] = (() => Manager.SendMessage(Message.Close, Level.Global, 0));
             specialCommands["Restart"] = (() => Manager.SendMessage(Message.Close, Level.Global, 1));
 
-            if (specialCommands.ContainsKey(command)) {
+            if (specialCommands.ContainsKey(command))
+            {
                 specialCommands[command]();
             }
-            else {
-                try {
+            else
+            {
+                try
+                {
                     Process.Start(command);
                 }
-                catch (Win32Exception) {
+                catch (Win32Exception)
+                {
                     //how do I handle this? :(
                 }
             }
         }
 
-        private ToolStripMenuItem buildMenu(Node<Action> root) {
-            if (root.Children.Count > 0) {
+        private ToolStripMenuItem buildMenu(Node<Action> root)
+        {
+            if (root.Children.Count > 0)
+            {
                 ToolStripMenuItem thisItem = new ToolStripMenuItem(root.Name);
-                ((ToolStripDropDownMenu) (thisItem.DropDown)).ShowImageMargin = false;
+                ((ToolStripDropDownMenu)(thisItem.DropDown)).ShowImageMargin = false;
                 thisItem.Font = titleFont;
-                thisItem.BackColor = Color.FromName(Manager.settings.ReadSettingOrDefault("DarkGray", "General.Menu.Background"));
+                thisItem.BackColor = Manager.Settings.ReadSettingOrDefault("DarkGray", "General.Menu.Background").ToColor();
                 thisItem.ForeColor =
-                    Color.FromName(Manager.settings.ReadSettingOrDefault("LightGray", "General.Menu.Foreground"));
-                foreach (Node<Action> child in root.Children) {
+                    Manager.Settings.ReadSettingOrDefault("LightGray", "General.Menu.Foreground").ToColor();
+                foreach (Node<Action> child in root.Children)
+                {
                     thisItem.DropDownItems.Add(buildMenu(child));
                 }
-                if (root.Data != null) {
+                if (root.Data != null)
+                {
                     thisItem.Click += ((sender, eventArgs) => root.Data());
                 }
 
                 return thisItem;
             }
-            else {
-                ToolStripMenuItem thisItem = new ToolStripMenuItem(root.Name, null, ((sender, eventargs)=>root.Data()));
+            else
+            {
+                ToolStripMenuItem thisItem = new ToolStripMenuItem(root.Name, null, ((sender, eventargs) => root.Data()));
                 thisItem.DisplayStyle = ToolStripItemDisplayStyle.Text;
                 thisItem.Font = titleFont;
-                thisItem.BackColor = Color.FromName(Manager.settings.ReadSettingOrDefault("DarkGray", "General.Menu.Background"));
+                thisItem.BackColor = Manager.Settings.ReadSettingOrDefault("DarkGray", "General.Menu.Background").ToColor();
                 thisItem.ForeColor =
-                    Color.FromName(Manager.settings.ReadSettingOrDefault("LightGray", "General.Menu.Foreground"));
+                    Manager.Settings.ReadSettingOrDefault("LightGray", "General.Menu.Foreground").ToColor();
                 return thisItem;
             }
         }
 
-        private void loadAdditionalItems() {
-            if (Manager.settings.sections.Contains("Bar Items")) {
-                foreach (List<string> list in Manager.settings.KeysUnderSection("Bar Items")) {
-                    string itemName, settingName, value;
-                    try {
-                        itemName = list[1];
-                        settingName = list[2];
-                        value = Manager.settings.ReadSetting(list.ToArray());
-                    }
-                    catch (IndexOutOfRangeException) {
-                        continue;
-                    }
-                    if (_items.ContainsKey(itemName)) {
-                        BarItem item = _items[itemName];
-                        switch (settingName) {
-                            case "MaximumWidth":
-                                item.MaximumWidth = int.Parse(value);
-                                break;
-                            case "MinimumWidth":
-                                item.MinimumWidth = int.Parse(value);
-                                break;
-                            case "IsBuiltIn":
-                                item.IsBuiltIn = bool.Parse(value);
-                                break;
-                            case "Foreground":
-                                item.ForeColour = new SolidBrush(Color.FromName(value));
-                                break;
-                            case "Background":
-                                item.BackColour = new SolidBrush(Color.FromName(value));
-                                break;
-                            case "Argument":
-                                item.Argument = value;
-                                break;
-                            case "Monitor":
-                                if (Screen.AllScreens.Length > int.Parse(value)) {
-                                    string monitorName = Screen.AllScreens[int.Parse(value)].DeviceName;
-                                    if (_parent.Screen.DeviceName != monitorName) {
-                                        _items.Remove(itemName);
-                                        continue;
+        private void loadAdditionalItems()
+        {
+            if (Manager.Settings.Contains("BarItems"))
+            {
+                foreach (var itemName in Manager.Settings.KeysUnderSection("BarItems"))
+                {
+                    foreach (var settingName in Manager.Settings.KeysUnderSection("BarItems." + itemName))
+                    {
+                        var value = Manager.Settings.ReadSetting("BarItems", itemName, settingName);
+                        if (_items.ContainsKey(itemName))
+                        {
+                            var item = _items[itemName];
+
+                            switch (settingName)
+                            {
+                                case "MaximumWidth":
+                                    item.MaximumWidth = int.Parse(value);
+                                    break;
+                                case "MinimumWidth":
+                                    item.MinimumWidth = int.Parse(value);
+                                    break;
+                                case "IsBuiltIn":
+                                    item.IsBuiltIn = bool.Parse(value);
+                                    break;
+                                case "Foreground":
+                                    item.ForeColour = new SolidBrush(value.ToColor());
+                                    break;
+                                case "Background":
+                                    item.BackColour = new SolidBrush(value.ToColor());
+                                    break;
+                                case "Argument":
+                                    item.Argument = value;
+                                    break;
+                                case "Monitor":
+                                    if (Screen.AllScreens.Length > int.Parse(value))
+                                    {
+                                        string monitorName = Screen.AllScreens[int.Parse(value)].DeviceName;
+                                        if (_parent.Screen.DeviceName != monitorName)
+                                        {
+                                            _items.Remove(itemName);
+                                            continue;
+                                        }
                                     }
-                                }
-                                break;
-                            case "Interval":
-                                TimeSpan newInterval = new TimeSpan(0, 0, 0, int.Parse(value));
-                                item.RenewInterval = newInterval;
-                                break;
-                            case "Click":
-                                item.ClickExecutePath = value;
-                                break;
-                            case "Prepend":
-                                item.PrependValue = value;
-                                break;
-                            case "Append":
-                                item.AppendValue = value;
-                                break;
-                            case "DoNotShow":
-                                item.DoNotShowMatch = value.Split(';');
-                                break;
-                            case "OnlyShow":
-                                item.OnlyShowOnMatch = value.Split(';');
-                                break;
+                                    break;
+                                case "Interval":
+                                    TimeSpan newInterval = new TimeSpan(0, 0, 0, int.Parse(value));
+                                    item.RenewInterval = newInterval;
+                                    break;
+                                case "Click":
+                                    item.ClickExecutePath = value;
+                                    break;
+                                case "Prepend":
+                                    item.PrependValue = value;
+                                    break;
+                                case "Append":
+                                    item.AppendValue = value;
+                                    break;
+                                case "DoNotShow":
+                                    item.DoNotShowMatch = value.Split(';');
+                                    break;
+                                case "OnlyShow":
+                                    item.OnlyShowOnMatch = value.Split(';');
+                                    break;
+                            }
+                            _items[itemName] = item;
                         }
-                        _items[itemName] = item;
-                    }
-                    else {
-                        if (settingName == "Path") {
-                            _items[itemName] = new BarItem(value);
+                        else
+                        {
+                            if (settingName == "Path")
+                            {
+                                _items[itemName] = new BarItem(value);
+                            }
                         }
                     }
                 }
             }
         }
 
-        private void Bar_Load(object sender, EventArgs e) {
+        private void Bar_Load(object sender, EventArgs e)
+        {
+            // 如果是xp或以上
+            if (Environment.OSVersion.Version.Major >= 6)
+            {
+                this.DoubleBuffered = true;
+                this.ResizeRedraw = false;
+
+                SetStyle(ControlStyles.UserPaint, true);
+                SetStyle(ControlStyles.AllPaintingInWmPaint, true); // 禁止擦除背景.
+                SetStyle(ControlStyles.DoubleBuffer, true); // 双缓冲
+            }
+
             Window thisWindow = new Window(this.Text, this.Handle, "", "", true);
             Rectangle rect = thisWindow.Location;
             rect.Height = barHeight;
@@ -316,33 +359,39 @@ namespace TWiME {
             Manager.WindowFocusChange += Manager_WindowFocusChange;
             Timer t = new Timer();
             t.Tick += (parent, args) => this.Redraw();
-            t.Interval = int.Parse(Manager.settings.ReadSettingOrDefault("10000", "General.Bar.Refresh"));
+            t.Interval = int.Parse(Manager.Settings.ReadSettingOrDefault("10000", "General.Bar.Refresh"));
             t.Start();
 
-            int winStyles = (int) Win32API.GetWindowLong(this.Handle, Win32API.GWL_EXSTYLE);
+            int winStyles = (int)Win32API.GetWindowLong(this.Handle, Win32API.GWL_EXSTYLE);
             winStyles |= Win32API.WS_EX_TOOLWINDOW;
             Win32API.SetWindowLong(this.Handle, Win32API.GWL_EXSTYLE, winStyles);
         }
 
-        private void Manager_WindowFocusChange(object sender, WindowEventArgs args) {
+        private void Manager_WindowFocusChange(object sender, WindowEventArgs args)
+        {
             Redraw();
         }
 
-        private void Bar_FormClosing(object sender, FormClosingEventArgs e) {
-            if (!InternalClosing) {
+        private void Bar_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (!InternalClosing)
+            {
                 Manager.SendMessage(Message.Close, Level.Global, 0);
             }
         }
 
-        private void Bar_Shown(object sender, EventArgs e) {
+        private void Bar_Shown(object sender, EventArgs e)
+        {
             this.Top = Screen.FromHandle(this.Handle).Bounds.Top;
         }
 
-        private void Bar_LocationChanged(object sender, EventArgs e) {
+        private void Bar_LocationChanged(object sender, EventArgs e)
+        {
             forceLocation();
         }
 
-        private void forceLocation() {
+        private void forceLocation()
+        {
             Window thisWindow = new Window("", this.Handle, "", "", true);
             Rectangle rect = thisWindow.Location;
             rect.Height = barHeight;
@@ -361,18 +410,31 @@ namespace TWiME {
             }
         }
 
-        private void addMouseAction(MouseButtons button, Rectangle area, Action action) {
-            if (!_clicks.ContainsKey(button)) {
+        private void addMouseAction(MouseButtons button, Rectangle area, Action action)
+        {
+            if (!_clicks.ContainsKey(button))
+            {
                 _clicks[button] = new Dictionary<Rectangle, Action>();
             }
             _clicks[button][area] = action;
         }
 
-        private void Bar_Paint(object sender, PaintEventArgs e) {
+        private Stopwatch watch = new Stopwatch();
+
+        private void Bar_Paint(object sender, PaintEventArgs e)
+        {
             _clicks.Clear();
             forceLocation();
+
+            this.SuspendLayout();
+
             Manager.Log(new string('=', 30));
-            Manager.Log("Starting draw");
+
+#if DEBUG
+            watch.Restart();
+#endif
+
+            Manager.Log("Starting draw." + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.ffff"));
 
             //Draw the tags display
 
@@ -380,13 +442,15 @@ namespace TWiME {
             int screenHeight = _screen.Bounds.Height;
             int screenWidth = _screen.Bounds.Width;
             Manager.Log("Screen is {0}x{1}".With(screenWidth, screenHeight));
-            int width = (int) ((screenWidth * height) / (float) screenHeight);
+            int width = (int)((screenWidth * height) / (float)screenHeight);
             Manager.Log("Each tag display is {0}x{1}".With(width, height));
             int currentWidth = 0;
 
-            if (_parent.Screen == Screen.PrimaryScreen) { //We're primary
+            if (Equals(_parent.Screen, Screen.PrimaryScreen))
+            { //We're primary
                 Bitmap menuMap = new Bitmap(width, barHeight);
-                using (Graphics gr = Graphics.FromImage(menuMap)) {
+                using (Graphics gr = Graphics.FromImage(menuMap))
+                {
                     gr.DrawRectangle(seperatorPen, 0, 0, width - 1, barHeight - 1);
                     gr.DrawString("T", titleFont, foregroundBrush, (width / 2) - "T".Width(titleFont) / 2,
                                   height / 2 - "T".Height(titleFont) / 2);
@@ -400,15 +464,19 @@ namespace TWiME {
             Size previewSize = new Size(width, height);
             int tag = 1;
             int originalWidth = width;
-            if (_parent.screens.Any(screen => screen == null) || !Manager.monitors.Contains(_parent)) {
+            if (_parent.screens.Any(screen => screen == null) || !Manager.monitors.Contains(_parent))
+            {
                 return;
             }
-            if (_parent.screens.Length > 1) {
-                foreach (TagScreen screen in _parent.screens) {
+            if (_parent.screens.Length > 1)
+            {
+                foreach (TagScreen screen in _parent.screens)
+                {
                     width = originalWidth;
                     string tagName = getTagName(tag);
-                    if (tagName.Width(titleFont) > width) {
-                        width = (int) (tagName.Width(titleFont) * 1.2);
+                    if (tagName.Width(titleFont) > width)
+                    {
+                        width = (int)(tagName.Width(titleFont) * 1.2);
                     }
                     Rectangle drawTangle = new Rectangle(currentWidth, 0, width - 1, this.Height - 1);
 
@@ -427,11 +495,13 @@ namespace TWiME {
 
                     e.Graphics.DrawRectangle(new Pen(Color.White), drawTangle);
                     e.Graphics.DrawImage(state, drawTangle);
-                    if (_parent.IsTagEnabled(tag1)) {
+                    if (_parent.IsTagEnabled(tag1))
+                    {
                         e.Graphics.FillRectangle(selectedBrush, drawTangle);
                         e.Graphics.DrawString(tagName, tag1 == _parent.GetActiveTag() ? boldFont : titleFont, foregroundBrush, tagPos);
                     }
-                    else {
+                    else
+                    {
                         e.Graphics.DrawString(tagName, titleFont, foregroundBrush, tagPos);
                     }
                     currentWidth += width;
@@ -441,15 +511,20 @@ namespace TWiME {
 
             //Generate the additional items
             List<Image> additionalImages = new List<Image>();
-            foreach (BarItem item in (from kvPair in _items select kvPair.Value)) {
+            foreach (BarItem item in (from kvPair in _items select kvPair.Value))
+            {
 
-                if (item.LastRenew > DateTime.Now.Ticks - item.RenewInterval.Ticks) {
+                if (item.LastRenew > DateTime.Now.Ticks - item.RenewInterval.Ticks)
+                {
                     additionalImages.Add(item.Value);
                     continue;
                 }
-                if (item.IsBuiltIn) {
-                    try {
-                        if (!_barPlugins.ContainsKey(item.Path)) {
+                if (item.IsBuiltIn)
+                {
+                    try
+                    {
+                        if (!_barPlugins.ContainsKey(item.Path))
+                        {
                             continue;
                         }
                         IPluginBarItem barItem = (IPluginBarItem)Activator.CreateInstance(
@@ -463,18 +538,22 @@ namespace TWiME {
                         barItem.SetDoNotShow(item.DoNotShowMatch);
                         barItem.SetOnlyShows(item.OnlyShowOnMatch);
                         Bitmap bitmap = barItem.Draw(item.Argument);
-                        if (bitmap != null) {
+                        if (bitmap != null)
+                        {
                             additionalImages.Add(bitmap);
                             item.Value = bitmap;
                         }
                     }
-                    catch {
+                    catch
+                    {
                         //Oh god everything is exploding
                     }
 
                 }
-                else {
-                    try {
+                else
+                {
+                    try
+                    {
                         Process process = new Process();
                         process.StartInfo.UseShellExecute = false;
                         process.StartInfo.RedirectStandardOutput = true;
@@ -485,16 +564,18 @@ namespace TWiME {
                         string output = process.StandardOutput.ReadToEnd();
                         process.WaitForExit();
                         if (output.Length == 0 ||
-                            (item.DoNotShowMatch!=null && item.DoNotShowMatch.Any(match => Regex.IsMatch(output, match))) ||
-                            (item.OnlyShowOnMatch!=null && !item.OnlyShowOnMatch.Any(match=>Regex.IsMatch(output, match)))
-                            ) {
-                                continue;
+                            (item.DoNotShowMatch != null && item.DoNotShowMatch.Any(match => Regex.IsMatch(output, match))) ||
+                            (item.OnlyShowOnMatch != null && !item.OnlyShowOnMatch.Any(match => Regex.IsMatch(output, match)))
+                            )
+                        {
+                            continue;
                         }
                         output = "{0}{1}{2}".With(item.PrependValue, output, item.AppendValue);
                         int itemWidth = output.Width(titleFont);
                         Bitmap itemMap = new Bitmap(itemWidth + 5, height);
 
-                        using (Graphics gr = Graphics.FromImage(itemMap)) {
+                        using (Graphics gr = Graphics.FromImage(itemMap))
+                        {
                             gr.FillRectangle(item.BackColour, 0, 0, itemMap.Width, itemMap.Height);
                             gr.DrawString(output, titleFont, item.ForeColour, 2, 0);
                         }
@@ -502,7 +583,8 @@ namespace TWiME {
                         additionalImages.Add(itemMap);
                         item.Value = itemMap;
                     }
-                    catch (Win32Exception) {
+                    catch (Win32Exception)
+                    {
                         continue; //Oh god everything is exploding (404: File Not Found)
                     }
                 }
@@ -517,10 +599,13 @@ namespace TWiME {
             List<Bitmap> windowTiles = new List<Bitmap>();
             int selectedWindowID = -1;
             int index = 0;
-            foreach (Window window in _parent.GetActiveScreen().windows) {
+            foreach (Window window in _parent.GetActiveScreen().windows)
+            {
                 Window focussedWindow = Manager.GetFocussedMonitor().GetActiveScreen().GetFocusedWindow();
-                if (focussedWindow != null) {
-                    if (focussedWindow.handle == window.handle) {
+                if (focussedWindow != null)
+                {
+                    if (focussedWindow.handle == window.handle)
+                    {
                         selectedWindowID = index;
                         Manager.Log("There is a focussed window. It is \"{0}\"".With(window.Title));
                         break;
@@ -531,12 +616,15 @@ namespace TWiME {
             index = 0;
             int numWindows = _parent.GetActiveScreen().windows.Count;
             Manager.Log("There are {0} windows under this bar's monitor's active screen's domain".With(numWindows));
-            if (numWindows > 0) {
+            if (numWindows > 0)
+            {
                 int originalRoom = remainingWidth / numWindows;
                 int room = originalRoom;
                 Manager.Log("This gives us {0}px for each window".With(room));
-                if (selectedWindowID != -1) {
-                    if (selectedWindowID != -1) {
+                if (selectedWindowID != -1)
+                {
+                    if (selectedWindowID != -1)
+                    {
                         int selectedWidth =
                             Math.Max(_parent.GetActiveScreen().windows[selectedWindowID].Title.Width(titleFont), room);
                         room = (remainingWidth - selectedWidth) / _parent.GetActiveScreen().windows.Count();
@@ -544,14 +632,17 @@ namespace TWiME {
                             "After adjusting for giving the active window more space, each window gets {0}px".With(room));
                     }
                 }
-                foreach (Window window in _parent.GetActiveScreen().windows) {
+                foreach (Window window in _parent.GetActiveScreen().windows)
+                {
                     bool drawFocussed = false;
-                    if (index == selectedWindowID) {
+                    if (index == selectedWindowID)
+                    {
                         drawFocussed = true;
                         window.UpdateTitle();
                     }
                     string windowTitle = window.Title;
-                    if (windowTitle == "") {
+                    if (windowTitle == "")
+                    {
                         windowTitle = window.ClassName;
                     }
                     Bitmap windowMap = new Bitmap("{3}{0}{2} {1}".With(index + 1, windowTitle, _tilingStyleSymbols[window.TilingType],
@@ -568,17 +659,22 @@ namespace TWiME {
                     index++;
                 }
                 int drawIndex = 0;
-                foreach (Bitmap windowTile in windowTiles) {
+                foreach (Bitmap windowTile in windowTiles)
+                {
                     Rectangle drawRect;
                     Color fadeOutColor = Color.Empty;
-                    if (drawIndex != selectedWindowID) {
+                    if (drawIndex != selectedWindowID)
+                    {
                         drawRect = new Rectangle(currentWidth, 0, room, height);
                         fadeOutColor = Color.Black;
                     }
-                    else {
+                    else
+                    {
                         int totalNotMe = 0;
-                        for (int i = 0; i < windowTiles.Count; i++) {
-                            if (i != drawIndex) {
+                        for (int i = 0; i < windowTiles.Count; i++)
+                        {
+                            if (i != drawIndex)
+                            {
                                 totalNotMe += room;
                             }
                         }
@@ -593,18 +689,20 @@ namespace TWiME {
                     addMouseAction(MouseButtons.Left, drawRect,
                                    (() => Manager.SendMessage(Message.FocusThis, Level.Screen, index1)));
                     addMouseAction(MouseButtons.Middle, drawRect,
-                                   (() => {
-                                        Manager.SendMessage(Message.FocusThis, Level.Screen, index1);
-                                        Manager.SendMessage(Message.Close, Level.Screen, index1);
-                                    }));
-                    addMouseAction(MouseButtons.Right, drawRect, (() => {
-                                                                      Manager.SendMessage(Message.FocusThis,
-                                                                                          Level.Screen, 0);
-                                                                      Manager.SendMessage(Message.SwitchThis,
-                                                                                          Level.Screen, index1);
-                                                                      Manager.SendMessage(Message.FocusThis,
-                                                                                          Level.Screen, 0);
-                                                                  }));
+                                   (() =>
+                                   {
+                                       Manager.SendMessage(Message.FocusThis, Level.Screen, index1);
+                                       Manager.SendMessage(Message.Close, Level.Screen, index1);
+                                   }));
+                    addMouseAction(MouseButtons.Right, drawRect, (() =>
+                    {
+                        Manager.SendMessage(Message.FocusThis,
+                                            Level.Screen, 0);
+                        Manager.SendMessage(Message.SwitchThis,
+                                            Level.Screen, index1);
+                        Manager.SendMessage(Message.FocusThis,
+                                            Level.Screen, 0);
+                    }));
 
                     Rectangle newRect = drawRect;
                     newRect.Width = 30;
@@ -623,19 +721,24 @@ namespace TWiME {
 
             //Draw the additional bits to the form
             int itemIndex = 0;
-            foreach (Image additionalImage in additionalImages) {
+            foreach (Image additionalImage in additionalImages)
+            {
                 e.Graphics.DrawImage(additionalImage, currentWidth, 0);
                 BarItem item = _items.ElementAt(itemIndex++).Value;
-                if (item.ClickExecutePath != "") {
+                if (item.ClickExecutePath != "")
+                {
                     Rectangle drawTangle = new Rectangle(currentWidth, 0, additionalImage.Width, height);
                     Action action;
-                    if (item.ClickExecutePath == "Next Layout") {
+                    if (item.ClickExecutePath == "Next Layout")
+                    {
                         action = (() => Manager.SendMessage(Message.LayoutRelative, Level.Monitor, _parent.GetEnabledTags().First()));
                     }
-                    else if (item.ClickExecutePath == "Switcher") {
+                    else if (item.ClickExecutePath == "Switcher")
+                    {
                         action = (() => Manager.Switcher.Show());
                     }
-                    else {
+                    else
+                    {
                         action = (() => Process.Start(item.ClickExecutePath));
                     }
                     addMouseAction(MouseButtons.Left, drawTangle, action);
@@ -644,49 +747,70 @@ namespace TWiME {
                 e.Graphics.DrawLine(seperatorPen, currentWidth - 1, 0, currentWidth - 1, barHeight);
             }
 
-            if (Manager.GetFocussedMonitor() != _parent) {
+            if (!Equals(Manager.GetFocussedMonitor(), _parent))
+            {
                 e.Graphics.FillRectangle(coverBrush, this.ClientRectangle);
             }
+
+#if DEBUG
+            watch.Stop();
+            Manager.Log("End draw." + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.ffff") + "---" + watch.ElapsedMilliseconds + "ms.");
+#endif
+
+            this.ResumeLayout();
         }
 
-        private string getTagName(int tag) {
-            if (tagStyle == "roman") {
+        private string getTagName(int tag)
+        {
+            if (tagStyle == "roman")
+            {
                 return RomanNumeral.ToRoman(tag);
             }
             Func<int, string> tagFromStartingPoint = (start => (start + (tag - 1)).ToString());
-            if (tagStyle == "ALPHABET") {
+            if (tagStyle == "ALPHABET")
+            {
                 return tagFromStartingPoint('A');
             }
-            if (tagStyle == "alphabet") {
+            if (tagStyle == "alphabet")
+            {
                 return tagFromStartingPoint('a');
             }
-            if (tagStyle == "symbol") {
+            if (tagStyle == "symbol")
+            {
                 return tagFromStartingPoint('!');
             }
-            if (tagStyle == "thing") {
+            if (tagStyle == "thing")
+            {
                 return tagFromStartingPoint(172);
             }
 
-            if (tagStyle == "custom") {
-                return Manager.settings.ReadSettingOrDefault(tag.ToString(), _parent.SafeName, tag.ToString(), "Name");
+            if (tagStyle == "custom")
+            {
+                return Manager.Settings.ReadSettingOrDefault(tag.ToString(), _parent.SafeName, tag.ToString(), "Name");
             }
             return tag.ToString();
 
         }
 
-        public void Redraw() {
+        public void Redraw()
+        {
             this.Invalidate();
         }
 
-        private void Bar_MouseDown(object sender, MouseEventArgs e) {
-            if (Manager.GetFocussedMonitor() != _parent) {
+        private void Bar_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (Manager.GetFocussedMonitor() != _parent)
+            {
                 BarWindow.Activate();
             }
             Manager.Log("Caught click event on bar", 4);
-            if (_clicks.ContainsKey(e.Button)) {
+            if (_clicks.ContainsKey(e.Button))
+            {
                 Dictionary<Rectangle, Action> clickType = _clicks[e.Button];
-                foreach (KeyValuePair<Rectangle, Action> click in clickType) {
-                    if (click.Key.ContainsPoint(this.PointToClient(MousePosition))) {
+                foreach (KeyValuePair<Rectangle, Action> click in clickType)
+                {
+                    if (click.Key.ContainsPoint(this.PointToClient(MousePosition)))
+                    {
                         Manager.Log(
                             "Click ({1}) was over a clickable area ({0})".With(click.Key,
                                                                                this.PointToClient(MousePosition)), 4);
@@ -696,11 +820,25 @@ namespace TWiME {
             }
         }
 
-        protected override CreateParams CreateParams {
-            get {
-                CreateParams param = base.CreateParams;
-                param.ExStyle = (param.ExStyle | Win32API.WS_EX_NOACTIVATE);
-                return param;
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                //                CreateParams param = base.CreateParams;
+                //                param.ExStyle = (param.ExStyle | Win32API.WS_EX_NOACTIVATE);
+                //                return param;
+                // 如果是xp或以上
+                if (Environment.OSVersion.Version.Major >= 6)
+                {
+                    CreateParams cp = base.CreateParams;
+                    cp.ExStyle |= 0x02000000 | cp.ExStyle | Win32API.WS_EX_NOACTIVATE; // 用双缓冲从下到上绘制窗口的所有子孙
+                    return cp;
+                }
+                else
+                {
+                    return base.CreateParams;
+                }
             }
         }
     }

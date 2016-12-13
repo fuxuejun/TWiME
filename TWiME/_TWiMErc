@@ -1,0 +1,116 @@
+﻿General{
+	# 顶部设置
+	Bar{
+		# 高度
+		Height 18
+		# 字体
+		Font "YaHei Consolas Hybrid"
+		# 刷新时间
+		Refresh 10000
+		# 未选中字体颜色
+		UnselectedForeground Black
+		# 选中字体颜色
+		SelectedForeground LightGray
+		# 选中背景色
+		SelectedItemColour DarkGray
+		# 未选中背景色
+		UnselectedBackgroundColour Black
+		# 选择的Tag? 虚拟桌面
+		SelectedTagColour White
+		# 背景色
+		BackColour DarkGray
+		# 分隔符颜色
+		SeperatorColour Blue
+	}
+
+	Main{
+		# 获取windows窗口的刷新时间
+		Poll 1000
+		# 前景色?
+		Foreground LightGray
+		# 背景色
+		Background DarkGray
+		# 关闭时是否保存配置到文件
+		AutoSave yes
+	}
+
+	# win+tab切换
+	WindowSwitcher{
+		Font{
+			# 字体
+			Name "YaHei Consolas Hybrid"
+			# 字号
+			Size 12
+		}
+		# 字体颜色
+		Foreground White
+		# 背景色
+		Background Black
+		# 交替?
+		Inactive Gray
+		# 选中项
+		Selected DarkGray
+	}
+}
+
+# 菜单
+MenuItems{
+	# 名字
+	taskmgr{
+		# 路径
+		path taskmgr
+	}
+	cmd{
+		path cmd
+	}
+	edit{
+		# 内置的
+		path "Edit TWiMErc"
+	}
+	quit{
+		# 内置的
+		path "Quit"
+	}
+}
+
+# 工具条 以下为内置的
+BarItems{
+	layout{
+		Path Layout
+		IsBuiltIn yes
+		Interval 10
+	}
+	ProcessorInfo{
+		Path ProcessorInfo
+		IsBuiltIn yes
+		Interval 5
+	}
+	RAMInfo{
+		Path RAMInfo
+		IsBuiltIn yes
+		Interval 5
+	}
+	Time{
+		Path Time
+		IsBuiltIn yes
+		Interval 10
+		Argument "MD  yyyy-MM-dd HH:mm"
+	}
+}
+
+# 窗口规则设置
+WindowRules [
+	# className.Title.0.3.1
+	"TaskManagerWindow.*.0.3.1",
+	"*.qq*.0.3.1",
+	"TXGuiFoundation.*.0.3.1",
+	"#32770.*.0.3.1",
+	"MozillaWindowClass.Library.0.3.1",
+	"*.Ditto*.0.3.1"
+]
+
+# 显示窗口设置
+DISPLAY4{
+	# 4个虚拟桌面
+  NumberOfTags 4
+}

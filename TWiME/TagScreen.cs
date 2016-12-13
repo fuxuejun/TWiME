@@ -31,7 +31,7 @@ namespace TWiME {
 
         public TagScreen(Monitor parent, int tag) {
             activeLayout =
-                Manager.GetLayoutIndexFromName(Manager.settings.ReadSettingOrDefault("DefaultLayout",
+                Manager.GetLayoutIndexFromName(Manager.Settings.ReadSettingOrDefault("DefaultLayout",
                                                                                      parent.SafeName, (tag).ToString(),
                                                                                      "DefaultLayout"));
             _parent = parent;
@@ -56,7 +56,7 @@ namespace TWiME {
         }
 
         public void InitLayout() {
-            Manager.settings.AddSetting(Manager.GetLayoutNameFromIndex(activeLayout),
+            Manager.Settings.AddSetting(Manager.GetLayoutNameFromIndex(activeLayout),
                                         parent.SafeName, (_tag).ToString(), "DefaultLayout");
             Layout instance =
                 (Layout)
@@ -95,7 +95,7 @@ namespace TWiME {
         private void Manager_WindowCreate(object sender, WindowEventArgs args) {
             bool rulesThisMonitor = false;
             int monitorPosition =
-                Convert.ToInt32(Manager.settings.ReadSettingOrDefault(-1, "General.Monitor.DefaultMonitor"));
+                Convert.ToInt32(Manager.Settings.ReadSettingOrDefault(-1, "General.Monitor.DefaultMonitor"));
             List<int> tagsToOpenOn = new List<int>();
             foreach (KeyValuePair<WindowMatch, WindowRule> keyValuePair in Manager.windowRules) {
                 if (keyValuePair.Key.windowMatches((Window) sender)) {
@@ -251,12 +251,12 @@ namespace TWiME {
                 }
                 if (message.Message == Message.Splitter) {
                     layout.MoveSplitter(message.data / 100.0f);
-                    Manager.settings.AddSetting(layout.GetSplitter(), parent.SafeName,
+                    Manager.Settings.AddSetting(layout.GetSplitter(), parent.SafeName,
                                                 (_tag).ToString(), "Splitter");
                 }
                 if (message.Message == Message.VSplitter) {
                     layout.MoveSplitter(message.data / 100.0f, true);
-                    Manager.settings.AddSetting(layout.GetSplitter(true), parent.SafeName,
+                    Manager.Settings.AddSetting(layout.GetSplitter(true), parent.SafeName,
                                                 (_tag).ToString(), "VSplitter");
                 }
                 if (message.Message == Message.Close) {
@@ -302,7 +302,7 @@ namespace TWiME {
                 return; //Don't take control of the Bar windows, that would be bad.
             }
             int stackPosition =
-                Convert.ToInt32(Manager.settings.ReadSettingOrDefault(0, _parent.SafeName, "DefaultStackPosition"));
+                Convert.ToInt32(Manager.Settings.ReadSettingOrDefault(0, _parent.SafeName, "DefaultStackPosition"));
             foreach (KeyValuePair<WindowMatch, WindowRule> kvPair in Manager.windowRules) {
                 if (kvPair.Key.windowMatches(window)) {
                     if (kvPair.Value.rule == WindowRules.stack) {
@@ -349,14 +349,14 @@ namespace TWiME {
                 window.Visible = true;
             }
             AssertLayout();
-            string wallpaperPath = Manager.settings.ReadSettingOrDefault("", _parent.SafeName,
+            string wallpaperPath = Manager.Settings.ReadSettingOrDefault("", _parent.SafeName,
                 (_tag).ToString(), "Wallpaper");
             if (wallpaperPath != "") {
                 Thread wallThread = new Thread((() => Manager.SetWallpaper(wallpaperPath)));
                 wallThread.Start();
             }
 
-            bool toggleTaskbar = bool.Parse(Manager.settings.ReadSettingOrDefault("false", "General.Main.ShowTaskbarOnEmptyTags"));
+            bool toggleTaskbar = Manager.Settings.ReadSettingOrDefault(false, "General.Main.ShowTaskbarOnEmptyTags");
             if (toggleTaskbar) {
                 if (windows.Count == 0) {
                     Taskbar.Hidden = false;

@@ -19,22 +19,22 @@ namespace TWiME {
         }
 
         private void WindowSwitcher_Load(object sender, EventArgs e) {
-            string fontName = Manager.settings.ReadSettingOrDefault("Segoe UI", "General.WindowSwitcher.Font.Name");
-            int fontSize = int.Parse(Manager.settings.ReadSettingOrDefault("8", "General.WindowSwitcher.Font.Size"));
+            string fontName = Manager.Settings.ReadSettingOrDefault("Segoe UI", "General.WindowSwitcher.Font.Name");
+            int fontSize = Manager.Settings.ReadSettingOrDefault(8, "General.WindowSwitcher.Font.Size");
             _windowFont = new Font(fontName, fontSize);
 
             _foreground =
                 new SolidBrush(
-                    Color.FromName(Manager.settings.ReadSettingOrDefault("White", "General.WindowSwitcher.Foreground")));
+                    Manager.Settings.ReadSettingOrDefault("White", "General.WindowSwitcher.Foreground").ToColor());
             _inactiveForeground =
                 new SolidBrush(
-                    Color.FromName(Manager.settings.ReadSettingOrDefault("Gray", "General.WindowSwitcher.Inactive")));
+                    Manager.Settings.ReadSettingOrDefault("Gray", "General.WindowSwitcher.Inactive").ToColor());
             _background =
                 new SolidBrush(
-                    Color.FromName(Manager.settings.ReadSettingOrDefault("Black", "General.WindowSwitcher.Background")));
+                    Manager.Settings.ReadSettingOrDefault("Black", "General.WindowSwitcher.Background").ToColor());
             _selected =
                 new SolidBrush(
-                    Color.FromName(Manager.settings.ReadSettingOrDefault("DarkGray", "General.WindowSwitcher.Selected")));
+                    Manager.Settings.ReadSettingOrDefault("DarkGray", "General.WindowSwitcher.Selected").ToColor());
 
             filter.Focus();
         }
